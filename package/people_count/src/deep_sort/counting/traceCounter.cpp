@@ -40,11 +40,29 @@ void draw_trace(cv::Mat img)
 			{
 				
 				line(img, Point(trace_infor[i].positions[j].x, trace_infor[i].positions[j].y), Point(trace_infor[i].positions[j + 1].x, trace_infor[i].positions[j + 1].y), classic_color[i%TraceNum],2,CV_8S);
-				circle(img, Point(trace_infor[i].positions[j + 1].x, trace_infor[i].positions[j + 1].y), 3, classic_color[i%TraceNum], -1);
+				//circle(img, Point(trace_infor[i].positions[j + 1].x, trace_infor[i].positions[j + 1].y), 3, classic_color[i%TraceNum], -1);
 				
 			}
 			track_to_clear.push_back(trace_infor[i]);
 		}
+		// if(trace_infor[i].flag_read_over == 1)
+		// {
+        //     for (traceInformation_io& track : track_to_clear)
+        //     {          
+        //     	if (track.count > 0)
+		//         {			
+        //             for (int j = 0; j < track.count - 1; j++)
+        //             {
+                        
+        //                 cv::line(img, cv::Point(track.positions[j].x, track.positions[j].y), cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), cv::Scalar(0, 0, 0, 0),2,CV_8S);
+        //                 //cv::circle(img_argb_clear, cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), 3,cv::Scalar(0, 0, 0, 0), -1);
+                        
+        //             }
+		//         }
+        //     }
+		// 	memset(&(trace_infor[i]), 0, sizeof(traceInformation_io));
+		// }
+		// track_to_clear.clear();
 		
 	}
 	
@@ -67,7 +85,7 @@ CTraceCounter::CTraceCounter()
 void CTraceCounter::run(cv::Mat vioPic, wi_rectangle* vipDetections,int* tracking_end_id, int vNumDetection,int size,int Runmode)
 {
 	draw_trace(vioPic);
-	generateTrace(trace_infor, vipDetections, vNumDetection,tracking_end_id,size, Runmode);
+	generateTrace(vioPic,trace_infor, vipDetections, vNumDetection,tracking_end_id,size, Runmode);
 	
 	// cv::putText(vioPic, "No:" + std::to_string(1), cv::Point(HEAD_INPUT_IMG_W_H - 65, 45), 1, 3, cv::Scalar(255, 0, 255), 2);
 }

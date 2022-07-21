@@ -294,7 +294,7 @@ void ai_worker(ai_worker_args ai_args)
                     {
                         
                         cv::line(img_argb_clear, cv::Point(track.positions[j].x, track.positions[j].y), cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), cv::Scalar(0, 0, 0, 0),2,CV_8S);
-                        cv::circle(img_argb_clear, cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), 3,cv::Scalar(0, 0, 0, 0), -1);
+                        //cv::circle(img_argb_clear, cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), 3,cv::Scalar(0, 0, 0, 0), -1);
                         
                     }
 		        }

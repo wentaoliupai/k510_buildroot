@@ -37,11 +37,19 @@
 #include <semaphore.h>
 
 
-#define TEST_PORT 9988      //socket connect port
+#define TEST_PORT 13000      //socket connect port
 #define MTU_NUM 1400    //length of each socket packet
 #define MAX_READ_BUFF_LENGTH 128  
 #define SERVER_IP "127.0.0.1"
 #define CLIENT_MAX_NUM 8
+
+
+
+
+
+
+
+
 
 void *thread_receive(void *arg);
 char *malloc_packet(void);
