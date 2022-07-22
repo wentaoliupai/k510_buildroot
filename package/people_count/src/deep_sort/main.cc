@@ -348,6 +348,8 @@ void ai_worker(ai_worker_args ai_args)
         count_to_clear[index].clear();
         count_point_to_clear[index].clear();
         track_to_clear[index].clear();
+
+        line(img_argb, cv::Point(DRM_INPUT_WIDTH/2,0), cv::Point(DRM_INPUT_WIDTH/2,DRM_INPUT_HEIGHT), cv::Scalar(0, 0, 255, 255), 2,CV_8S);
         pTraceCounter->run(img_argb,dec_data,track_end_id.data(),size,track_end_id.size(),MODE,index);
         {
             // ScopedTiming st("draw osd", ai_args.enable_profile);
@@ -398,7 +400,7 @@ void ai_worker(ai_worker_args ai_args)
                     points_to_clear[index].push_back(origin);
                     strs_to_clear[index].push_back(text);
                 }
-                    line(img_argb, cv::Point(DRM_INPUT_WIDTH/2,0), cv::Point(DRM_INPUT_WIDTH/2,DRM_INPUT_HEIGHT), cv::Scalar(0, 0, 255, 255), 2,CV_8S);
+                    
       
                 obj_cnt += 1;
             }
