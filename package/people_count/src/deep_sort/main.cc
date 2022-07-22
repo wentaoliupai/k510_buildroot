@@ -26,6 +26,7 @@
 #include<vector>
 #include<time.h> 
 #include "k510_drm.h"
+#include "buf_mgt.h"
 #include "media_ctl.h"
 #include <linux/videodev2.h>
 
@@ -49,19 +50,27 @@ static int received_sigterm = 0;
 std::mutex mtx;
 uint8_t drm_bufs_index = 0;
 uint8_t drm_bufs_argb_index = 0;
-struct drm_buffer *fbuf_yuv, *fbuf_argb;
+struct drm_buffer *fbuf_yuv;
+// struct drm_buffer *fbuf_yuv ,*fbuf_argb;
 struct drm_buffer *fbuf_yuv_clear, *fbuf_argb_clear;
 int obj_cnt;
 #define MODE 2
-std::vector<cv::Point> points_to_clear;
-std::vector<std::string> strs_to_clear;
-std::vector<std::string> count_to_clear;
-std::vector<cv::Point> count_point_to_clear;
-std::vector<traceInformation_io> track_to_clear;
+std::vector<cv::Point> points_to_clear[DRM_BUFFERS_COUNT];
+std::vector<std::string> strs_to_clear[DRM_BUFFERS_COUNT];
+std::vector<std::string> count_to_clear[DRM_BUFFERS_COUNT];
+std::vector<cv::Point> count_point_to_clear[DRM_BUFFERS_COUNT];
+std::vector<traceInformation_io> track_to_clear[DRM_BUFFERS_COUNT];
+
+// std::vector<cv::Point> points_to_clear;
+// std::vector<std::string> strs_to_clear;
+// std::vector<std::string> count_to_clear;
+// std::vector<cv::Point> count_point_to_clear;
+// std::vector<traceInformation_io> track_to_clear;
+
 std::atomic<bool> quit(true);
 EncoderHandle *pCfg;
 IRtspServerEX *pRtspServer;
-
+static buf_mgt_t buf_mgt;
 extern stru_event_infor event_infor;
 // #define is_rtsp
 // #define LOG_ON 1
@@ -83,114 +92,114 @@ static unsigned long int get_time()
   return time.tv_sec * 1000LL * 1000LL * 1000LL + time.tv_nsec;
 }
 
-void ai_rgb_worker(ai_worker_args ai_args)
-{
-    /****fixed operation for video operation****/
-    mtx.lock();
-    cv::VideoCapture capture;
-    capture.open(5);
-    // video setting
-    capture.set(cv::CAP_PROP_CONVERT_RGB, 0);
-    capture.set(cv::CAP_PROP_FRAME_WIDTH, ai_args.net_len);
-    capture.set(cv::CAP_PROP_FRAME_HEIGHT, ai_args.net_len);
-    // RRRRRR....GGGGGGG....BBBBBB, CHW
-    capture.set(cv::CAP_PROP_FOURCC, V4L2_PIX_FMT_RGB24);
-    mtx.unlock();
+// void ai_rgb_worker(ai_worker_args ai_args)
+// {
+//     /****fixed operation for video operation****/
+//     mtx.lock();
+//     cv::VideoCapture capture;
+//     capture.open(5);
+//     // video setting
+//     capture.set(cv::CAP_PROP_CONVERT_RGB, 0);
+//     capture.set(cv::CAP_PROP_FRAME_WIDTH, ai_args.net_len);
+//     capture.set(cv::CAP_PROP_FRAME_HEIGHT, ai_args.net_len);
+//     // RRRRRR....GGGGGGG....BBBBBB, CHW
+//     capture.set(cv::CAP_PROP_FOURCC, V4L2_PIX_FMT_RGB24);
+//     mtx.unlock();
 
-    DeepSort ds(ai_args);
-    int frame_cnt = 0;
+//     DeepSort ds(ai_args);
+//     int frame_cnt = 0;
 
-    // define cv::Mat for ai input
-    // padding offset is (valid_width - valid_height) / 2 * valid_width
-    cv::Mat rgb24_img_for_ai(ai_args.net_len, ai_args.net_len, CV_8UC3, ds.get_det()->virtual_addr_input[0] + (ai_args.valid_width - ai_args.valid_height) / 2 * ai_args.valid_width);
-    tracker mytracker(ai_args.iou_distance, ai_args.max_n_init);
-    while (quit.load())
-    {
-        //ScopedTiming st("total", 1);
-        mtx.lock();
-        capture.read(rgb24_img_for_ai);
-        mtx.unlock();
+//     // define cv::Mat for ai input
+//     // padding offset is (valid_width - valid_height) / 2 * valid_width
+//     cv::Mat rgb24_img_for_ai(ai_args.net_len, ai_args.net_len, CV_8UC3, ds.get_det()->virtual_addr_input[0] + (ai_args.valid_width - ai_args.valid_height) / 2 * ai_args.valid_width);
+//     tracker mytracker(ai_args.iou_distance, ai_args.max_n_init);
+//     while (quit.load())
+//     {
+//         //ScopedTiming st("total", 1);
+//         mtx.lock();
+//         capture.read(rgb24_img_for_ai);
+//         mtx.unlock();
         
-        DEEP_SORT_RET ret;
-        cv::Mat img = cv::imread("./000001.jpg");
-        ds.run_with_det_model(img, ret);
+//         DEEP_SORT_RET ret;
+//         cv::Mat img = cv::imread("./000001.jpg");
+//         ds.run_with_det_model(img, ret);
 
-        //对于result的操作
+//         //对于result的操作
 
-        /****fixed operation for display clear****/
-        cv::Mat img_argb;
-        {
-            ScopedTiming st("display clear", ai_args.enable_profile);
-            fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
-            img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t*)fbuf_argb->map);
-            fbuf_argb_clear = &drm_dev.drm_bufs_argb[!drm_bufs_argb_index];
-            cv::Mat img_argb_clear = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb_clear->map);
-            // img_argb.setTo(cv::Scalar(0, 0, 0, 0));
+//         /****fixed operation for display clear****/
+//         cv::Mat img_argb;
+//         {
+//             ScopedTiming st("display clear", ai_args.enable_profile);
+//             struct drm_buff *fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
+//             img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t*)fbuf_argb->map);
+//             fbuf_argb_clear = &drm_dev.drm_bufs_argb[!drm_bufs_argb_index];
+//             cv::Mat img_argb_clear = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb_clear->map);
+//             // img_argb.setTo(cv::Scalar(0, 0, 0, 0));
 
-            for (uint32_t i = 0; i < obj_cnt; i++)
-            {
-                struct vo_draw_frame frame;
-                frame.crtc_id = drm_dev.crtc_id;
-                frame.draw_en = 0;
-                frame.frame_num = i;
-                draw_frame(&frame);
-            }
-        }
+//             for (uint32_t i = 0; i < obj_cnt; i++)
+//             {
+//                 struct vo_draw_frame frame;
+//                 frame.crtc_id = drm_dev.crtc_id;
+//                 frame.draw_en = 0;
+//                 frame.frame_num = i;
+//                 draw_frame(&frame);
+//             }
+//         }
 
-        {
-            ScopedTiming st("draw osd", ai_args.enable_profile);
-            obj_cnt = 0;
+//         {
+//             ScopedTiming st("draw osd", ai_args.enable_profile);
+//             obj_cnt = 0;
 
-            for (Track& track : ds.get_tracker()->tracks)
-            {
-                //py版本是>1,有可能出现只显示预测框，不显示检测框的情况
-                //if (!track.is_confirmed() || track.time_since_update > 1)
-                if (!track.is_confirmed() || track.time_since_update >= 1)
-                    continue;
-                if (obj_cnt < 32)
-                {
-                    struct vo_draw_frame frame;
-                    frame.crtc_id = drm_dev.crtc_id;
-                    frame.draw_en = 1;
-                    frame.frame_num = obj_cnt;
-                    DETECTBOX tmp = track.to_tlwh();
-                    std::cout << tmp << std::endl;
-                    frame.line_x_start = tmp[0]*DRM_INPUT_WIDTH/ai_args.valid_width;
-                    frame.line_y_start = tmp[1]*DRM_INPUT_HEIGHT/ai_args.valid_width+DRM_OFFSET_HEIGHT;
-                    frame.line_y_start = frame.line_y_start < DRM_OFFSET_HEIGHT ? DRM_OFFSET_HEIGHT : frame.line_y_start;
-                    frame.line_x_end = (tmp[0]+tmp[2])*DRM_INPUT_WIDTH/ai_args.valid_height;
-                    frame.line_y_end = (tmp[1]+tmp[3])*DRM_INPUT_HEIGHT/ai_args.valid_height+DRM_OFFSET_HEIGHT;
-                    frame.line_y_end = frame.line_y_end > (DRM_OFFSET_HEIGHT+DRM_INPUT_HEIGHT) ? (DRM_OFFSET_HEIGHT+DRM_INPUT_HEIGHT) : frame.line_y_end;
-                    draw_frame(&frame);
+//             for (Track& track : ds.get_tracker()->tracks)
+//             {
+//                 //py版本是>1,有可能出现只显示预测框，不显示检测框的情况
+//                 //if (!track.is_confirmed() || track.time_since_update > 1)
+//                 if (!track.is_confirmed() || track.time_since_update >= 1)
+//                     continue;
+//                 if (obj_cnt < 32)
+//                 {
+//                     struct vo_draw_frame frame;
+//                     frame.crtc_id = drm_dev.crtc_id;
+//                     frame.draw_en = 1;
+//                     frame.frame_num = obj_cnt;
+//                     DETECTBOX tmp = track.to_tlwh();
+//                     std::cout << tmp << std::endl;
+//                     frame.line_x_start = tmp[0]*DRM_INPUT_WIDTH/ai_args.valid_width;
+//                     frame.line_y_start = tmp[1]*DRM_INPUT_HEIGHT/ai_args.valid_width+DRM_OFFSET_HEIGHT;
+//                     frame.line_y_start = frame.line_y_start < DRM_OFFSET_HEIGHT ? DRM_OFFSET_HEIGHT : frame.line_y_start;
+//                     frame.line_x_end = (tmp[0]+tmp[2])*DRM_INPUT_WIDTH/ai_args.valid_height;
+//                     frame.line_y_end = (tmp[1]+tmp[3])*DRM_INPUT_HEIGHT/ai_args.valid_height+DRM_OFFSET_HEIGHT;
+//                     frame.line_y_end = frame.line_y_end > (DRM_OFFSET_HEIGHT+DRM_INPUT_HEIGHT) ? (DRM_OFFSET_HEIGHT+DRM_INPUT_HEIGHT) : frame.line_y_end;
+//                     draw_frame(&frame);
 
-                    cv::Point origin;
-                    origin.x = (int)(tmp[0] * DRM_INPUT_WIDTH / ai_args.valid_width);
-                    origin.y = (int)(tmp[1] * DRM_INPUT_HEIGHT / ai_args.valid_height + 10);
-                    std::string text = std::to_string(track.track_id);
-                    cv::putText(img_argb, text, origin, cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255, 255), 1, 8, 0);
+//                     cv::Point origin;
+//                     origin.x = (int)(tmp[0] * DRM_INPUT_WIDTH / ai_args.valid_width);
+//                     origin.y = (int)(tmp[1] * DRM_INPUT_HEIGHT / ai_args.valid_height + 10);
+//                     std::string text = std::to_string(track.track_id);
+//                     cv::putText(img_argb, text, origin, cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255, 255), 1, 8, 0);
 
-                }
-                obj_cnt += 1;
-            }
-        }
-        frame_cnt += 1;
-        drm_bufs_argb_index = !drm_bufs_argb_index;
-    }
+//                 }
+//                 obj_cnt += 1;
+//             }
+//         }
+//         frame_cnt += 1;
+//         drm_bufs_argb_index = !drm_bufs_argb_index;
+//     }
 
-    /****fixed operation for capture release and display clear****/
-    printf("%s ==========release \n", __func__);
-    mtx.lock();
-    capture.release();
-    mtx.unlock();
-    for (uint32_t i = 0; i < obj_cnt; i++)
-    {
-        struct vo_draw_frame frame;
-        frame.crtc_id = drm_dev.crtc_id;
-        frame.draw_en = 0;
-        frame.frame_num = i;
-        draw_frame(&frame);
-    }
-}
+//     /****fixed operation for capture release and display clear****/
+//     printf("%s ==========release \n", __func__);
+//     mtx.lock();
+//     capture.release();
+//     mtx.unlock();
+//     for (uint32_t i = 0; i < obj_cnt; i++)
+//     {
+//         struct vo_draw_frame frame;
+//         frame.crtc_id = drm_dev.crtc_id;
+//         frame.draw_en = 0;
+//         frame.frame_num = i;
+//         draw_frame(&frame);
+//     }
+// }
 
 
 
@@ -268,34 +277,54 @@ void ai_worker(ai_worker_args ai_args)
         }
 #endif
         static CTraceCounter* pTraceCounter = CTraceCounter::getOrCreateInstance();
-        
+        uint64_t index;
         /****fixed operation for display clear****/
         cv::Mat img_argb;
         {
-            ScopedTiming st("display clear", ai_args.enable_profile);
-            fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
-            img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb->map);
-            fbuf_argb_clear = &drm_dev.drm_bufs_argb[!drm_bufs_argb_index];
-            img_argb_clear = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb_clear->map);
-            // img_argb.setTo(cv::Scalar(0,0,0,0));
-            for (uint32_t cc = 0; cc < points_to_clear.size(); cc++)
+            buf_mgt_writer_get(&buf_mgt, (void **)&index);
+            // ScopedTiming st("display clear", ai_args.enable_profile);
+            // struct drm_buffer *fbuf_argb = &drm_dev.drm_bufs_argb[index];
+            // fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
+            // img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t*)fbuf_argb->map);
+            // fbuf_argb_clear = &drm_dev.drm_bufs_argb[!drm_bufs_argb_index];
+            // img_argb_clear = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb_clear->map);
+            // // img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb->map);
+            // for (uint32_t cc = 0; cc < points_to_clear.size(); cc++)
+            // {          
+            //     cv::putText(img_argb_clear, strs_to_clear[cc], points_to_clear[cc], cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 0, 0), 1, 8, 0);
+            // }
+            // for (uint32_t cc1 = 0; cc1 < count_to_clear.size(); cc1++)
+            // {          
+            //     cv::putText(img_argb_clear, count_to_clear[cc1], count_point_to_clear[cc1], cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 0, 0), 1, 8, 0);
+            // }
+            // for (traceInformation_io& track : track_to_clear)
+            // {          
+            // 	if (track.count > 0)
+		    //     {			
+            //         for (int j = 0; j < track.count - 1; j++)
+            //         {
+            //             cv::line(img_argb_clear, cv::Point(track.positions[j].x, track.positions[j].y), cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), cv::Scalar(0, 0, 0, 0),2,CV_8S);                       
+            //         }
+		    //     }
+            // }
+            struct drm_buffer *fbuf_argb = &drm_dev.drm_bufs_argb[index];
+            img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t*)fbuf_argb->map);
+
+            for (uint32_t cc = 0; cc < points_to_clear[index].size(); cc++)
             {          
-                cv::putText(img_argb_clear, strs_to_clear[cc], points_to_clear[cc], cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 0, 0), 1, 8, 0);
+                cv::putText(img_argb, strs_to_clear[index][cc], points_to_clear[index][cc], cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 0, 0), 1, 8, 0);
             }
-            for (uint32_t cc1 = 0; cc1 < count_to_clear.size(); cc1++)
+            for (uint32_t cc1 = 0; cc1 < count_to_clear[index].size(); cc1++)
             {          
-                cv::putText(img_argb_clear, count_to_clear[cc1], count_point_to_clear[cc1], cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 0, 0), 1, 8, 0);
+                cv::putText(img_argb, count_to_clear[index][cc1], count_point_to_clear[index][cc1], cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 0, 0), 1, 8, 0);
             }
-            for (traceInformation_io& track : track_to_clear)
+            for (traceInformation_io& track : track_to_clear[index])
             {          
             	if (track.count > 0)
 		        {			
                     for (int j = 0; j < track.count - 1; j++)
                     {
-                        
-                        cv::line(img_argb_clear, cv::Point(track.positions[j].x, track.positions[j].y), cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), cv::Scalar(0, 0, 0, 0),2,CV_8S);
-                        cv::circle(img_argb_clear, cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), 3,cv::Scalar(0, 0, 0, 0), -1);
-                        
+                        cv::line(img_argb, cv::Point(track.positions[j].x, track.positions[j].y), cv::Point(track.positions[j + 1].x, track.positions[j + 1].y), cv::Scalar(0, 0, 0, 0),2,CV_8S);                       
                     }
 		        }
             }
@@ -309,28 +338,30 @@ void ai_worker(ai_worker_args ai_args)
             }
             
         }
-        count_to_clear.clear();
-        count_point_to_clear.clear();
-        track_to_clear.clear();
+        // count_to_clear.clear();
+        // count_point_to_clear.clear();
+        // track_to_clear.clear();
         data_convert(ret,dec_data,&track_end_id,&size);
-        std::string text = "in:" + std::to_string(event_infor.count_in);
-	    std::string text1 = "out:" + std::to_string(event_infor.count_out);
-        cv::putText(img_argb, "in:" + std::to_string(event_infor.count_in), cv::Point(10,40),cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255, 255), 1, 8, 0);
-        cv::putText(img_argb, "out:" + std::to_string(event_infor.count_out), cv::Point(10,80),cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255, 255), 1, 8, 0);
-        count_to_clear.push_back(text);
-        count_to_clear.push_back(text1);
-        count_point_to_clear.push_back(cv::Point(10,40));
-        count_point_to_clear.push_back(cv::Point(10,80));
 
-        pTraceCounter->run(img_argb,dec_data,track_end_id.data(),size,track_end_id.size(),MODE);
+        points_to_clear[index].clear();
+        strs_to_clear[index].clear();
+        count_to_clear[index].clear();
+        count_point_to_clear[index].clear();
+        track_to_clear[index].clear();
+        pTraceCounter->run(img_argb,dec_data,track_end_id.data(),size,track_end_id.size(),MODE,index);
         {
-            ScopedTiming st("draw osd", ai_args.enable_profile);
-            cv::Mat img_argb;        
-            fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
-            img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb->map);
+            // ScopedTiming st("draw osd", ai_args.enable_profile);
+            // cv::Mat img_argb;        
+            // fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
+            // struct drm_buffer *fbuf_argb = &drm_dev.drm_bufs_argb[index];
+            // img_argb = cv::Mat(DRM_INPUT_HEIGHT, DRM_INPUT_WIDTH, CV_8UC4, (uint8_t *)fbuf_argb->map);
             obj_cnt = 0;
-            points_to_clear.clear();
-            strs_to_clear.clear();
+
+            // points_to_clear.clear();
+            // strs_to_clear.clear();
+            // count_to_clear.clear();
+            // count_point_to_clear.clear();
+            // track_to_clear.clear();
             for (Track& track : ds.get_tracker()->tracks)
             {
                 //py版本是>1,有可能出现只显示预测框，不显示检测框的情况
@@ -364,16 +395,17 @@ void ai_worker(ai_worker_args ai_args)
                     origin.y = (int)(tmp[1] * DRM_INPUT_HEIGHT / ai_args.valid_height + 10);
                     std::string text = std::to_string(track.track_id);
                     cv::putText(img_argb, text, origin, cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255, 255), 1, 8, 0);
-                    points_to_clear.push_back(origin);
-                    strs_to_clear.push_back(text);
+                    points_to_clear[index].push_back(origin);
+                    strs_to_clear[index].push_back(text);
                 }
-                    // line(img_argb, cv::Point(DRM_INPUT_WIDTH/2,0), cv::Point(DRM_INPUT_WIDTH/2,DRM_INPUT_HEIGHT), cv::Scalar(0, 0, 255, 255), 2,CV_8S);
+                    line(img_argb, cv::Point(DRM_INPUT_WIDTH/2,0), cv::Point(DRM_INPUT_WIDTH/2,DRM_INPUT_HEIGHT), cv::Scalar(0, 0, 255, 255), 2,CV_8S);
       
                 obj_cnt += 1;
             }
         }
         frame_cnt += 1;
-        drm_bufs_argb_index = !drm_bufs_argb_index;
+        buf_mgt_writer_put(&buf_mgt, (void *)index);
+        // drm_bufs_argb_index = !drm_bufs_argb_index;
 
         
     }
@@ -441,7 +473,14 @@ static int process_ds0_image(struct v4l2_device *vdev,unsigned int width,unsigne
 
     if (drm_dev.req)
         drm_wait_vsync();
-    fbuf_argb = &drm_dev.drm_bufs_argb[!drm_bufs_argb_index];
+    uint64_t index;
+    if (buf_mgt_display_get(&buf_mgt, (void **)&index) != 0)
+    {
+        index = 0;
+    }
+
+    // struct drm_buffer *fbuf_argb = &drm_dev.drm_bufs_argb[drm_bufs_argb_index];
+    struct drm_buffer *fbuf_argb = &drm_dev.drm_bufs_argb[index];
     if (drm_dmabuf_set_plane(fbuf_yuv, fbuf_argb)) {
         std::cerr << "Flush fail \n";
         return 1;
@@ -610,13 +649,21 @@ int main(int argc, char *argv[])
     sigfillset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
  
+    for (uint32_t i = 0; i < DRM_BUFFERS_COUNT; i++)
+    {
+        buf_mgt_reader_put(&buf_mgt, (void *)i);
+    }
+        
+
     if(drm_init())
     {
         return -1;
     }
     mediactl_init(video_cfg_file, &dev_info[0]);
-    std::thread thread_ds2(ai_worker, ai_args);
+    
     std::thread thread_ds0(display_worker, enable_profile);
+
+    std::thread thread_ds2(ai_worker, ai_args);
 
     thread_ds0.join();
     thread_ds2.join();

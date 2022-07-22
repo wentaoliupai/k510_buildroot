@@ -3,7 +3,11 @@
 
 #include <stdint.h>
 #include "utils.h"
-
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/core/utils/logger.hpp>
 #define boxNum 20   //max num of detected boxed in  frame
 #define delay_frame 10
 
@@ -30,10 +34,10 @@ typedef struct
 
 extern stru_event_infor event_infor;
 
-int generateTrace(traceInformation_io* vpTraceSet, wi_rectangle* vipDetections, int vNumDetection, int* tracking_end_id,int size, char vRUN_MODE);
+int generateTrace(cv::Mat vioPic,traceInformation_io* vpTraceSet, wi_rectangle* vipDetections, int vNumDetection, int* tracking_end_id,int size, char vRUN_MODE);
 
 //trajectories storage zone garbage collection
-int gc_trace_infor(traceInformation_io* _trace_infor);
+int gc_trace_infor(cv::Mat vioPic,traceInformation_io* _trace_infor);
  
 
 //add new box to the one trajectory 

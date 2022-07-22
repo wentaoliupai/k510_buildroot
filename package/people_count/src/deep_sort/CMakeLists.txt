@@ -6,6 +6,7 @@ file(GLOB SOURCE
     "object_detect.cc"
 	"deep_sort.cpp"
     "drm/k510_drm.c"
+    "drm/buf_mgt.cc"
     "definition/*.cpp"
     "matching/*.cpp"
     "3rd_party/*.cpp"

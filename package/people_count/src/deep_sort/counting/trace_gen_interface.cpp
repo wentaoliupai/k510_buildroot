@@ -9,6 +9,8 @@
 #include "stdlib.h"
 #include "stdio.h"
 
+
+
 #define TraceNum 30
 #define LINEMODE 1
 #define CENTERIGNORE 1
@@ -108,14 +110,14 @@ int getOrCreatTraceIndex(traceInformation_io *vpTraceSet, wi_rectangle *vpDetect
     return traceIndex;
 }
 
-int generateTrace(traceInformation_io *vpTraceSet, wi_rectangle *vpDetections, int vNumDetection,
+int generateTrace(cv::Mat vioPic,traceInformation_io *vpTraceSet, wi_rectangle *vpDetections, int vNumDetection,
 		int* tracking_end_id , int size,char vRUN_MODE) {
 	// jduge_line_mode();
     int flag = 1;
 	jude_trace_over_valid_set(vpTraceSet,tracking_end_id,size);
 	//if(vRUN_MODE == 16)
 	{
-		gc_trace_infor(vpTraceSet);
+		gc_trace_infor(vioPic,vpTraceSet);
 	}
     if (vNumDetection == 0)return 1;
     whichTraceBelongTo(vpTraceSet, vpDetections, vNumDetection);
@@ -147,7 +149,7 @@ int generateTrace(traceInformation_io *vpTraceSet, wi_rectangle *vpDetections, i
 }
 
 // trajectories storage zone garbage collection
-int gc_trace_infor(traceInformation_io *vpTraceSet) {
+int gc_trace_infor(cv::Mat vioPic,traceInformation_io *vpTraceSet) {
     for (int i = 0; i < TraceNum; ++i) {
         if (vpTraceSet->flag_read_over == 1) {
             memset(vpTraceSet, 0, sizeof(traceInformation_io));

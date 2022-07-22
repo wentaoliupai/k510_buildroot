@@ -7,7 +7,7 @@ class CTraceCounter : public CSingleton<CTraceCounter>
 {
 public:
 	virtual ~CTraceCounter() {}
-	void run(cv::Mat vioPic, wi_rectangle* vipDetections,int* tracking_end_id, int vNumDetection,int size,int Runmode);
+	void run(cv::Mat vioPic, wi_rectangle* vipDetections,int* tracking_end_id, int vNumDetection,int size,int Runmode,int index);
 
 private:
 	CTraceCounter();
